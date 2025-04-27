@@ -8,8 +8,19 @@
           <p class="text-gray-500">Manage your to-do items</p>
         </div>
         
-        <!-- Filter and Add Task -->
+        <!-- Search, Filter and Add Task -->
         <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <div class="relative flex-1">
+            <input
+              v-model="searchQuery"
+              placeholder="Search tasks..."
+              class="w-full px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              @input="handleSearch"
+            >
+            <svg v-if="searchQuery" @click="clearSearch" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute right-3 top-2.5 text-gray-400 cursor-pointer hover:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
           <div class="relative flex-1">
             <select 
               v-model="filter"
@@ -31,7 +42,7 @@
           <div class="border-b border-gray-200 px-6 py-4 bg-gray-50">
             <h2 class="text-lg font-medium text-gray-800 flex items-center gap-2">
               <span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
-              Pending Tasks ({{ incompleteCount }})
+              Pending Tasks ({{ filteredIncompleteCount }})
             </h2>
           </div>
           <div class="overflow-x-auto">
@@ -44,7 +55,7 @@
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="task in incompleteTasks" :key="task.id" class="hover:bg-gray-50 transition-colors">
+                <tr v-for="task in filteredIncompleteTasks" :key="task.id" class="hover:bg-gray-50 transition-colors">
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center" v-if="!task.editing">
                       <input 
@@ -78,7 +89,7 @@
                     <button @click="deleteTask(task.id)" class="text-red-600 hover:text-red-900">Delete</button>
                   </td>
                 </tr>
-                <tr v-if="incompleteCount === 0">
+                <tr v-if="filteredIncompleteCount === 0">
                   <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">
                     No pending tasks
                   </td>
@@ -93,7 +104,7 @@
           <div class="border-b border-gray-200 px-6 py-4 bg-gray-50">
             <h2 class="text-lg font-medium text-gray-800 flex items-center gap-2">
               <span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>
-              Completed Tasks ({{ completedCount }})
+              Completed Tasks ({{ filteredCompletedCount }})
             </h2>
           </div>
           <div class="overflow-x-auto">
@@ -106,7 +117,7 @@
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="task in completedTasks" :key="task.id" class="hover:bg-gray-50 transition-colors">
+                <tr v-for="task in filteredCompletedTasks" :key="task.id" class="hover:bg-gray-50 transition-colors">
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center" v-if="!task.editing">
                       <input 
@@ -140,7 +151,7 @@
                     <button @click="deleteTask(task.id)" class="text-red-600 hover:text-red-900">Delete</button>
                   </td>
                 </tr>
-                <tr v-if="completedCount === 0">
+                <tr v-if="filteredCompletedCount === 0">
                   <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">
                     No completed tasks
                   </td>
@@ -161,6 +172,7 @@ import AddTaskForm from '../components/AddTaskForm.vue'
 
 const todos = ref([])
 const filter = ref('all')
+const searchQuery = ref('')
 
 // Fetch tasks and add editing state
 onMounted(async () => {
@@ -172,18 +184,37 @@ onMounted(async () => {
   }))
 })
 
-// Computed properties
-const completedTasks = computed(() => todos.value.filter(task => task.completed))
-const incompleteTasks = computed(() => todos.value.filter(task => !task.completed))
-const completedCount = computed(() => completedTasks.value.length)
-const incompleteCount = computed(() => incompleteTasks.value.length)
+// Clear search
+const clearSearch = () => {
+  searchQuery.value = ''
+}
 
-// Filtered tasks
-const filteredTodos = computed(() => {
-  if (filter.value === 'completed') return completedTasks.value
-  if (filter.value === 'incomplete') return incompleteTasks.value
-  return todos.value
+// Handle search input
+const handleSearch = () => {
+  // Search is handled reactively through the computed properties
+}
+
+// Computed properties for search
+const filteredBySearch = computed(() => {
+  if (!searchQuery.value.trim()) return todos.value
+  const query = searchQuery.value.toLowerCase().trim()
+  return todos.value.filter(task => 
+    task.todo.toLowerCase().includes(query))
 })
+
+// Filter tasks by status and search
+const filteredTodos = computed(() => {
+  let filtered = filteredBySearch.value
+  if (filter.value === 'completed') return filtered.filter(task => task.completed)
+  if (filter.value === 'incomplete') return filtered.filter(task => !task.completed)
+  return filtered
+})
+
+// Filtered tasks for display
+const filteredCompletedTasks = computed(() => filteredTodos.value.filter(task => task.completed))
+const filteredIncompleteTasks = computed(() => filteredTodos.value.filter(task => !task.completed))
+const filteredCompletedCount = computed(() => filteredCompletedTasks.value.length)
+const filteredIncompleteCount = computed(() => filteredIncompleteTasks.value.length)
 
 // Task actions
 const addTask = async (newTaskText) => {
